@@ -980,54 +980,168 @@ function exporteerExcel() {
 
 function exporteerWord() {
   if (!_lastData) return;
+  const datum = new Date().toLocaleDateString('nl-NL');
+  
   let html = `<html><head><meta charset="utf-8">
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1d23; }
-    h1 { color: #1F3864; font-size: 20px; border-bottom: 3px solid #C2185B; padding-bottom: 8px; }
-    h2 { color: #1F3864; font-size: 15px; background: #1F3864; color: white; padding: 8px 12px; margin-top: 24px; }
-    h3 { color: #2E5FA3; font-size: 13px; margin: 16px 0 6px; }
-    .lo { background: #FFF8E1; border-left: 4px solid #F57F17; padding: 10px 14px; margin: 10px 0; font-weight: bold; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
-    .kennis { background: #E8EEF7; padding: 10px; }
-    .vaardigheid { background: #E8F5E9; padding: 10px; }
-    .verantw { background: #EDE7F6; padding: 10px; }
-    .label { font-size: 10px; font-weight: bold; text-transform: uppercase; opacity: 0.6; margin-bottom: 4px; }
-    .skill { display: inline-block; background: #FEE2E2; color: #B91C1C; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin: 2px; }
-    .soft { background: #E8EEF7; color: #2E5FA3; }
-    footer { margin-top: 40px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; margin: 32px 40px; color: #1a1d23; font-size: 13px; background: #fff; }
+    
+    /* Header */
+    .doc-header { background: #1F3864; color: white; padding: 20px 24px; margin-bottom: 24px; }
+    .doc-header h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .doc-header p { font-size: 11px; opacity: 0.75; }
+    .bright-logo { font-size: 16px; font-weight: 900; letter-spacing: -0.5px; }
+    .bright-logo span:nth-child(1) { color: #4CAF50; }
+    .bright-logo span:nth-child(2) { color: #2196F3; }
+    .bright-logo span:nth-child(3) { color: #FFC107; }
+    .bright-logo span:nth-child(4) { color: #4CAF50; }
+    .bright-logo span:nth-child(5) { color: #2196F3; }
+    .bright-logo span:nth-child(6) { color: #9C27B0; }
+    .bright-ws { font-size: 10px; color: #aaa; margin-left: 4px; }
+    
+    /* Taak header */
+    .taak-header { background: #1F3864; color: white; padding: 10px 16px; margin: 20px 0 0; display: flex; align-items: center; gap: 10px; }
+    .taak-nr { background: #C2185B; color: white; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; flex-shrink: 0; }
+    .taak-titel { font-size: 13px; font-weight: 600; }
+    
+    /* Handeling blok */
+    .handeling-blok { border: 1px solid #E2E6EE; margin-bottom: 16px; }
+    .handeling-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #2E5FA3; padding: 10px 16px 4px; }
+    .handeling-naam { font-size: 13px; font-weight: 700; color: #1F3864; padding: 0 16px 12px; border-bottom: 1px solid #E2E6EE; }
+    
+    /* Kennis / Vaardigheid / Verantwoordelijkheid grid */
+    .kvv-grid { display: table; width: 100%; border-collapse: collapse; }
+    .kvv-cel { display: table-cell; width: 33.33%; padding: 12px 14px; vertical-align: top; }
+    .kvv-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+    .kvv-tekst { font-size: 12px; line-height: 1.5; }
+    .kennis { background: #E8EEF7; }
+    .kennis .kvv-label { color: #2E5FA3; }
+    .vaardigheid { background: #E8F5E9; }
+    .vaardigheid .kvv-label { color: #1E7145; }
+    .verantw { background: #EDE7F6; }
+    .verantw .kvv-label { color: #4B2D83; }
+    
+    /* Leeruitkomst */
+    .leeruitkomst { background: #FFFDE7; border-left: 4px solid #F57F17; padding: 14px 16px; margin: 0; }
+    .lo-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #B45309; margin-bottom: 6px; }
+    .lo-tekst { font-size: 13px; font-weight: 700; color: #1a1d23; line-height: 1.5; }
+    
+    /* ESCO Skills */
+    .skills-sectie { padding: 10px 16px 12px; border-top: 1px solid #E2E6EE; background: #F7F8FA; }
+    .skills-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6B7280; margin-bottom: 6px; }
+    .skill-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin: 2px; }
+    .skill-hard { background: #FEE2E2; color: #B91C1C; }
+    .skill-soft { background: #EFF6FF; color: #1D4ED8; }
+    .skill-niveau { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; margin-left: 4px; }
+    .niv-beginner { background: #F0F0F0; color: #444; }
+    .niv-basis { background: #D8F3DC; color: #2d6a4f; }
+    .niv-gemiddeld { background: #D0EAFF; color: #1a56db; }
+    .niv-gevorderd { background: #FEF3D0; color: #7a5c00; }
+    .niv-expert { background: #FCE4E4; color: #9b2226; }
+    .skill-uri { font-size: 9px; color: #888; margin-left: 4px; }
+    
+    /* Footer */
+    .doc-footer { margin-top: 32px; padding-top: 12px; border-top: 2px solid #1F3864; display: flex; justify-content: space-between; align-items: center; }
+    .doc-footer p { font-size: 10px; color: #888; }
+    
+    /* Paginascheiding */
+    .taak-sectie { page-break-inside: avoid; }
   </style></head><body>`;
 
-  html += `<h1>Taakgerichte Leeruitkomsten — ${_lastData.functietitel || ''}</h1>`;
-  html += `<p style="color:#666; font-size:12px;">Gegenereerd op ${new Date().toLocaleDateString('nl-NL')} | Bright Work Solutions</p>`;
+  // Header
+  html += `
+  <div class="doc-header">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h1>Taakgerichte Leeruitkomsten</h1>
+        <p>${_lastData.functietitel || ''} | Gegenereerd op ${datum}</p>
+      </div>
+      <div style="text-align:right;">
+        <div class="bright-logo"><span>B</span><span>R</span><span>I</span><span>G</span><span>H</span><span>T</span><span class="bright-ws"> work solutions</span></div>
+        <div style="font-size:10px; color:#aaa; margin-top:2px;">Leeruitkomsten Generator</div>
+      </div>
+    </div>
+  </div>`;
 
+  // Samenvatting
+  const aantalTaken = (_lastData.taken || []).length;
+  const aantalHandelingen = (_lastData.taken || []).reduce((a, t) => a + (t.handelingen || []).length, 0);
+  html += `<p style="font-size:12px; color:#555; margin-bottom:20px;">${aantalTaken} taken | ${aantalHandelingen} handelingen</p>`;
+
+  // Taken
   for (const taak of (_lastData.taken || [])) {
-    html += `<h2>${taak.nr} — ${taak.taak}</h2>`;
+    html += `<div class="taak-sectie">`;
+    html += `<div class="taak-header"><span class="taak-nr">${taak.nr}</span><span class="taak-titel">${taak.taak}</span></div>`;
+    
     for (const h of (taak.handelingen || [])) {
-      html += `<h3>Handeling: ${h.handeling}</h3>`;
-      html += `<div class="grid">
-        <div class="kennis"><div class="label">Kennis</div>${h.kennis}</div>
-        <div class="vaardigheid"><div class="label">Vaardigheid</div>${h.vaardigheid}</div>
-        <div class="verantw"><div class="label">Verantwoordelijkheid</div>${h.verantwoordelijkheid}</div>
+      html += `<div class="handeling-blok">`;
+      html += `<div class="handeling-label">Handeling</div>`;
+      html += `<div class="handeling-naam">${h.handeling}</div>`;
+      
+      // Kennis / Vaardigheid / Verantwoordelijkheid
+      html += `<div class="kvv-grid">
+        <div class="kvv-cel kennis">
+          <div class="kvv-label">📘 Kennis</div>
+          <div class="kvv-tekst">${h.kennis || ''}</div>
+        </div>
+        <div class="kvv-cel vaardigheid">
+          <div class="kvv-label">🔧 Vaardigheid</div>
+          <div class="kvv-tekst">${h.vaardigheid || ''}</div>
+        </div>
+        <div class="kvv-cel verantw">
+          <div class="kvv-label">✅ Verantwoordelijkheid</div>
+          <div class="kvv-tekst">${h.verantwoordelijkheid || ''}</div>
+        </div>
       </div>`;
-      html += `<div class="lo">⭐ ${h.leeruitkomst}</div>`;
+      
+      // Leeruitkomst
+      html += `<div class="leeruitkomst">
+        <div class="lo-label">⭐ Taakgerichte leeruitkomst</div>
+        <div class="lo-tekst">${h.leeruitkomst || ''}</div>
+      </div>`;
+      
+      // ESCO Skills
       if (h.skills && h.skills.length) {
-        html += '<div>';
+        const niveauClass = (n) => {
+          if (!n) return 'niv-basis';
+          const l = n.toLowerCase();
+          if (l.includes('beginner')) return 'niv-beginner';
+          if (l.includes('basis')) return 'niv-basis';
+          if (l.includes('gemiddeld')) return 'niv-gemiddeld';
+          if (l.includes('gevorderd')) return 'niv-gevorderd';
+          if (l.includes('expert')) return 'niv-expert';
+          return 'niv-basis';
+        };
+        
+        html += `<div class="skills-sectie"><div class="skills-label">ESCO Skills</div>`;
         h.skills.forEach(s => {
-          html += `<span class="skill ${s.type === 'Soft' ? 'soft' : ''}">${s.naam} — ${s.niveau}</span>`;
+          const isHard = s.type === 'Hard';
+          const escoLink = s.esco_uri ? ` <a href="${s.esco_uri}" style="color:#2E5FA3; font-size:10px; text-decoration:none;">ESCO ↗</a>` : '';
+          const lcId = s.lightcast_id ? `<span style="font-size:9px; color:#999; font-family:monospace; margin-left:4px;">${s.lightcast_id}</span>` : '';
+          html += `<span class="skill-tag ${isHard ? 'skill-hard' : 'skill-soft'}">${s.naam}<span class="skill-niveau ${niveauClass(s.niveau)}">${s.niveau || ''}</span>${escoLink}${lcId}</span>`;
         });
-        html += '</div>';
+        html += `</div>`;
       }
+      
+      html += `</div>`; // einde handeling-blok
     }
+    html += `</div>`; // einde taak-sectie
   }
 
-  html += `<footer>Bright Work Solutions | brightworksolutions.nl | Leeruitkomsten Generator</footer>`;
-  html += '</body></html>';
+  // Footer
+  html += `
+  <div class="doc-footer">
+    <p>Bright Work Solutions | brightworksolutions.nl</p>
+    <p>Leeruitkomsten Generator | ${datum}</p>
+  </div>
+  </body></html>`;
 
   const blob = new Blob([html], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Leeruitkomsten_${(_lastData.functietitel || 'export').replace(/\s+/g,'_')}.doc`;
+  a.download = `Leeruitkomsten_${(_lastData.functietitel || 'export').replace(/\s+/g,'_')}_${datum.replace(/\//g,'-')}.doc`;
   a.click();
   URL.revokeObjectURL(url);
 }
