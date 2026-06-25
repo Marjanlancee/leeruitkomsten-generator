@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Leeruitkomsten Generator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root {
@@ -490,7 +491,7 @@ async function generateLeeruitkomsten() {
 
   // Bouw skillset samenvatting
   const skillsSamenvatting = xlsxData.map(row => {
-    return `- ${row['Type'] || ''} | ${row['Skill'] || ''} | Niveau: ${row['Niveau'] || ''} | Taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
+    return `- Type: ${row['Type'] || ''} | Skill: ${row['Skill'] || ''} | Niveau: ${row['Niveau'] || ''} | ESCO URI: ${row['ESCO URI'] || ''} | Lightcast ID: ${row['Lightcast ID'] || ''} | Gekoppelde taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
   }).join('\n');
 
   setProgress(25, 'Data voorbereid, AI wordt aangesproken...');
@@ -502,22 +503,20 @@ Je ontvangt een taakanalyse (Word-tekst) en een skillset (Excel-data) voor de fu
 TAAKANALYSE:
 ${docxText.substring(0, 3000)}
 
-SKILLSET (ESCO):
+SKILLSET (ESCO) — gebruik ALLEEN deze skills, verzin er GEEN:
 ${skillsSamenvatting.substring(0, 2000)}
 
-Stel voor ELKE UNIEKE TAAK uit de taakanalyse een taakgerichte leeruitkomst op. Een taakgerichte leeruitkomst beschrijft wat iemand NA de training kan doen in de praktijk — niet wat ze leren tijdens de training.
+BELANGRIJKE REGELS:
+1. Gebruik UITSLUITEND de ESCO-skills die in de skillset staan — nooit zelf skills verzinnen
+2. Neem de exacte ESCO skill-naam, ESCO URI en Lightcast ID over uit de invoer
+3. Koppel elke handeling aan de skills die in de taakanalyse aan die taak zijn gekoppeld
+4. Een taakgerichte leeruitkomst beschrijft wat iemand NA de training kan doen op de werkvloer — niet wat ze leren tijdens de training
+5. Gebruik de formule: "Na de training kan de [functietitel] zelfstandig [concrete handeling] [context/conditie] zodat [gewenst resultaat]"
 
-Structuur per taak:
-1. Taaknummer en taakomschrijving
-2. Handelingen (2-3 concrete handelingen die bij de taak horen)
-3. Per handeling:
-   - Kennis: wat moet de medewerker weten?
-   - Vaardigheid: wat moet de medewerker kunnen doen?
-   - Verantwoordelijkheid: waarvoor is de medewerker aanspreekbaar?
-   - Leeruitkomst: "Na de training kan de [functietitel] zelfstandig [concrete handeling] [context/conditie] zodat [gewenst resultaat]"
-4. Gekoppelde ESCO-skill(s) en niveau
+Stel voor ELKE UNIEKE TAAK uit de taakanalyse een taakgerichte leeruitkomst op.
+Geef maximaal 5 taken terug.
 
-Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown:
+Antwoord ALLEEN in JSON, geen uitleg, geen markdown:
 {
   "functietitel": "...",
   "taken": [
@@ -531,7 +530,15 @@ Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown
           "vaardigheid": "...",
           "verantwoordelijkheid": "...",
           "leeruitkomst": "Na de training kan de [functietitel] ...",
-          "skills": [{"naam": "...", "type": "Hard/Soft", "niveau": "..."}]
+          "skills": [
+            {
+              "naam": "...",
+              "type": "Hard/Soft",
+              "niveau": "...",
+              "esco_uri": "http://data.europa.eu/esco/skill/...",
+              "lightcast_id": "..."
+            }
+          ]
         }
       ]
     }
@@ -604,7 +611,9 @@ function niveauClass(niveau) {
   return 'niveau-gemiddeld';
 }
 
+let _lastData = null;
 function renderResults(data) {
+  _lastData = data;
   const container = document.getElementById('results');
   const taken = data.taken || [];
 
@@ -625,9 +634,11 @@ function renderResults(data) {
     `;
 
     for (const h of (taak.handelingen || [])) {
-      const skillTags = (h.skills || []).map(s =>
-        `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam}<span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span></span>`
-      ).join('');
+      const skillTags = (h.skills || []).map(s => {
+        const escoLink = s.esco_uri ? `<a href="${s.esco_uri}" target="_blank" style="color:inherit;opacity:0.7;font-size:10px;margin-left:4px;" title="ESCO: ${s.esco_uri}">🔗</a>` : '';
+        const lightcastBadge = s.lightcast_id ? `<span style="font-size:9px;opacity:0.6;margin-left:4px;" title="Lightcast ID: ${s.lightcast_id}">#${s.lightcast_id.substring(0,8)}</span>` : '';
+        return `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam}${escoLink}<span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span>${lightcastBadge}</span>`;
+      }).join('');
 
       html += `
         <div class="handeling-block">
@@ -660,9 +671,17 @@ function renderResults(data) {
   }
 
   html += `
-    <button class="btn btn-secondary" onclick="kopieerAlles()">
-      📋 Kopieer alle leeruitkomsten
-    </button>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:16px;">
+      <button class="btn btn-secondary" onclick="kopieerAlles()">
+        📋 Kopieer tekst
+      </button>
+      <button class="btn btn-secondary" onclick="exporteerExcel()" style="background:var(--groen);">
+        📊 Download Excel
+      </button>
+      <button class="btn btn-secondary" onclick="exporteerWord()" style="background:var(--paars); color:#fff;">
+        📄 Download Word
+      </button>
+    </div>
   `;
 
   container.innerHTML = html;
@@ -696,6 +715,83 @@ function kopieerAlles() {
   navigator.clipboard.writeText(tekst).then(() => {
     alert('Leeruitkomsten gekopieerd naar klembord!');
   });
+}
+
+function exporteerExcel() {
+  if (!_lastData) return;
+  const wb = XLSX.utils.book_new();
+  const rows = [['Functie', _lastData.functietitel || '']];
+  rows.push([]);
+  rows.push(['Taaknr', 'Taak', 'Handeling', 'Kennis', 'Vaardigheid', 'Verantwoordelijkheid', 'Leeruitkomst', 'Skills', 'Niveau', 'ESCO URI', 'Lightcast ID']);
+
+  for (const taak of (_lastData.taken || [])) {
+    for (const h of (taak.handelingen || [])) {
+      const skills = (h.skills || []).map(s => s.naam).join(', ');
+      const niveaus = (h.skills || []).map(s => s.niveau).join(', ');
+      const escoUris = (h.skills || []).map(s => s.esco_uri || '').join(', ');
+      const lightcastIds = (h.skills || []).map(s => s.lightcast_id || '').join(', ');
+      rows.push([taak.nr, taak.taak, h.handeling, h.kennis, h.vaardigheid, h.verantwoordelijkheid, h.leeruitkomst, skills, niveaus, escoUris, lightcastIds]);
+    }
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [8,30,28,28,28,28,50,20,12,40,22].map(w => ({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Leeruitkomsten');
+  XLSX.writeFile(wb, `Leeruitkomsten_${(_lastData.functietitel || 'export').replace(/\s+/g,'_')}.xlsx`);
+}
+
+function exporteerWord() {
+  if (!_lastData) return;
+  let html = `<html><head><meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1d23; }
+    h1 { color: #1F3864; font-size: 20px; border-bottom: 3px solid #C2185B; padding-bottom: 8px; }
+    h2 { color: #1F3864; font-size: 15px; background: #1F3864; color: white; padding: 8px 12px; margin-top: 24px; }
+    h3 { color: #2E5FA3; font-size: 13px; margin: 16px 0 6px; }
+    .lo { background: #FFF8E1; border-left: 4px solid #F57F17; padding: 10px 14px; margin: 10px 0; font-weight: bold; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+    .kennis { background: #E8EEF7; padding: 10px; }
+    .vaardigheid { background: #E8F5E9; padding: 10px; }
+    .verantw { background: #EDE7F6; padding: 10px; }
+    .label { font-size: 10px; font-weight: bold; text-transform: uppercase; opacity: 0.6; margin-bottom: 4px; }
+    .skill { display: inline-block; background: #FEE2E2; color: #B91C1C; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin: 2px; }
+    .soft { background: #E8EEF7; color: #2E5FA3; }
+    footer { margin-top: 40px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
+  </style></head><body>`;
+
+  html += `<h1>Taakgerichte Leeruitkomsten — ${_lastData.functietitel || ''}</h1>`;
+  html += `<p style="color:#666; font-size:12px;">Gegenereerd op ${new Date().toLocaleDateString('nl-NL')} | Bright Work Solutions</p>`;
+
+  for (const taak of (_lastData.taken || [])) {
+    html += `<h2>${taak.nr} — ${taak.taak}</h2>`;
+    for (const h of (taak.handelingen || [])) {
+      html += `<h3>Handeling: ${h.handeling}</h3>`;
+      html += `<div class="grid">
+        <div class="kennis"><div class="label">Kennis</div>${h.kennis}</div>
+        <div class="vaardigheid"><div class="label">Vaardigheid</div>${h.vaardigheid}</div>
+        <div class="verantw"><div class="label">Verantwoordelijkheid</div>${h.verantwoordelijkheid}</div>
+      </div>`;
+      html += `<div class="lo">⭐ ${h.leeruitkomst}</div>`;
+      if (h.skills && h.skills.length) {
+        html += '<div>';
+        h.skills.forEach(s => {
+          html += `<span class="skill ${s.type === 'Soft' ? 'soft' : ''}">${s.naam} — ${s.niveau}</span>`;
+        });
+        html += '</div>';
+      }
+    }
+  }
+
+  html += `<footer>Bright Work Solutions | brightworksolutions.nl | Leeruitkomsten Generator</footer>`;
+  html += '</body></html>';
+
+  const blob = new Blob([html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Leeruitkomsten_${(_lastData.functietitel || 'export').replace(/\s+/g,'_')}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>
