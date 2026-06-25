@@ -1058,7 +1058,7 @@ function exporteerWord() {
         <p>${_lastData.functietitel || ''} | Gegenereerd op ${datum}</p>
       </div>
       <div style="text-align:right;">
-        <div class="bright-logo"><span>B</span><span>R</span><span>I</span><span>G</span><span>H</span><span>T</span><span class="bright-ws"> work solutions</span></div>
+        <div style="font-size:15px; font-weight:900; letter-spacing:-0.5px; color:white;">BRIGHT <span style="font-size:10px; font-weight:400; color:#ccc;">work solutions</span></div>
         <div style="font-size:10px; color:#aaa; margin-top:2px;">Leeruitkomsten Generator</div>
       </div>
     </div>
@@ -1079,21 +1079,23 @@ function exporteerWord() {
       html += `<div class="handeling-label">Handeling</div>`;
       html += `<div class="handeling-naam">${h.handeling}</div>`;
       
-      // Kennis / Vaardigheid / Verantwoordelijkheid
-      html += `<div class="kvv-grid">
-        <div class="kvv-cel kennis">
-          <div class="kvv-label">📘 Kennis</div>
-          <div class="kvv-tekst">${h.kennis || ''}</div>
-        </div>
-        <div class="kvv-cel vaardigheid">
-          <div class="kvv-label">🔧 Vaardigheid</div>
-          <div class="kvv-tekst">${h.vaardigheid || ''}</div>
-        </div>
-        <div class="kvv-cel verantw">
-          <div class="kvv-label">✅ Verantwoordelijkheid</div>
-          <div class="kvv-tekst">${h.verantwoordelijkheid || ''}</div>
-        </div>
-      </div>`;
+      // Kennis / Vaardigheid / Verantwoordelijkheid als tabel (Word-compatibel)
+      html += `<table width="100%" cellpadding="0" cellspacing="2" border="0" style="margin:0; border-collapse:separate;">
+        <tr>
+          <td width="33%" valign="top" style="background:#E8EEF7; padding:12px 14px; border-radius:4px;">
+            <div style="font-size:9px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#2E5FA3; margin-bottom:6px;">KENNIS</div>
+            <div style="font-size:12px; line-height:1.5; color:#1a1d23;">${h.kennis || ''}</div>
+          </td>
+          <td width="33%" valign="top" style="background:#E8F5E9; padding:12px 14px; border-radius:4px;">
+            <div style="font-size:9px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#1E7145; margin-bottom:6px;">VAARDIGHEID</div>
+            <div style="font-size:12px; line-height:1.5; color:#1a1d23;">${h.vaardigheid || ''}</div>
+          </td>
+          <td width="33%" valign="top" style="background:#EDE7F6; padding:12px 14px; border-radius:4px;">
+            <div style="font-size:9px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#4B2D83; margin-bottom:6px;">VERANTWOORDELIJKHEID</div>
+            <div style="font-size:12px; line-height:1.5; color:#1a1d23;">${h.verantwoordelijkheid || ''}</div>
+          </td>
+        </tr>
+      </table>`;
       
       // Leeruitkomst
       html += `<div class="leeruitkomst">
