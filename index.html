@@ -367,10 +367,129 @@
     <h1>Leeruitkomsten Generator</h1>
     <p>Van taakanalyse en skillset naar taakgerichte leeruitkomsten</p>
   </div>
-  <span class="badge">Beta</span>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <button onclick="document.getElementById('methodiek-modal').style.display='block'" 
+            style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background 0.2s;"
+            onmouseover="this.style.background='rgba(255,255,255,0.25)'"
+            onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+      📖 Methodiek
+    </button>
+    <span class="badge">Beta</span>
+  </div>
 </header>
 
 <main>
+
+<!-- Methodiek Modal -->
+<div id="methodiek-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; overflow-y:auto;">
+  <div style="max-width:760px; margin:40px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background:var(--primary); padding:24px 28px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h2 style="color:#fff; font-size:18px; font-weight:700; margin:0;">Methodiek & Bronnen</h2>
+        <p style="color:rgba(255,255,255,0.7); font-size:13px; margin:4px 0 0;">Hoe werkt de Leeruitkomsten Generator?</p>
+      </div>
+      <button onclick="document.getElementById('methodiek-modal').style.display='none'" 
+              style="background:rgba(255,255,255,0.15); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
+    <div style="padding:28px; font-size:14px; line-height:1.7; color:#1A1D23;">
+      
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:0 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Wat doet de tool?</h3>
+      <p>De Leeruitkomsten Generator zet een taakanalyse en skillset om naar <strong>taakgerichte leeruitkomsten</strong>. Een leeruitkomst beschrijft wat iemand <em>na de training kan doen in de praktijk</em> — niet wat ze leren tijdens de training.</p>
+      
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:20px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Hoe is de structuur opgebouwd?</h3>
+      <p>De tool gebruikt de volgende opbouw per taak:</p>
+      <div style="background:var(--bg); border-radius:8px; padding:16px; margin:12px 0; font-family:monospace; font-size:12px; line-height:2;">
+        Taak (uit functieprofiel)<br>
+        └── Handeling 1 (concrete deelstap)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── Kennis: wat moet je weten?<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── Vaardigheid: wat moet je kunnen?<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── Verantwoordelijkheid: waarvoor ben je aanspreekbaar?<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;└── Leeruitkomst: Na de training kan de [functie]...<br>
+        └── Handeling 2 ...<br>
+        └── Handeling 3 ...
+      </div>
+
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:20px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Bekwaamheidsniveaus</h3>
+      <p>Elke leeruitkomst wordt geformuleerd op het vereiste bekwaamheidsniveau uit de skillset:</p>
+      <table style="width:100%; border-collapse:collapse; font-size:13px; margin:8px 0;">
+        <tr style="background:var(--primary); color:#fff;">
+          <th style="padding:8px 12px; text-align:left;">Niveau</th>
+          <th style="padding:8px 12px; text-align:left;">Omschrijving</th>
+          <th style="padding:8px 12px; text-align:left;">Kenmerk leeruitkomst</th>
+        </tr>
+        <tr style="background:#E8F5E9;">
+          <td style="padding:8px 12px; font-weight:700; color:#1E7145;">Beginner</td>
+          <td style="padding:8px 12px;">Nog geen kennis/vaardigheid</td>
+          <td style="padding:8px 12px;">...onder toezicht en met instructie</td>
+        </tr>
+        <tr style="background:#F3F8FF;">
+          <td style="padding:8px 12px; font-weight:700; color:#2E5FA3;">Basis</td>
+          <td style="padding:8px 12px;">Kan eenvoudige taken uitvoeren</td>
+          <td style="padding:8px 12px;">...met begeleiding bij afwijkingen</td>
+        </tr>
+        <tr style="background:#FFF8E1;">
+          <td style="padding:8px 12px; font-weight:700; color:#B45309;">Gemiddeld</td>
+          <td style="padding:8px 12px;">Kan meeste taken zelfstandig</td>
+          <td style="padding:8px 12px;">...zelfstandig, soms ondersteuning</td>
+        </tr>
+        <tr style="background:#FFF3E0;">
+          <td style="padding:8px 12px; font-weight:700; color:#E65100;">Gevorderd</td>
+          <td style="padding:8px 12px;">Kan complexe taken zelfstandig</td>
+          <td style="padding:8px 12px;">...zelfstandig, zonder begeleiding</td>
+        </tr>
+        <tr style="background:#FCE4EC;">
+          <td style="padding:8px 12px; font-weight:700; color:#C2185B;">Expert</td>
+          <td style="padding:8px 12px;">Instrueert anderen, verbetert processen</td>
+          <td style="padding:8px 12px;">...en instrueert/coacht anderen</td>
+        </tr>
+      </table>
+
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:20px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Invoer</h3>
+      <p>De tool verwacht twee bestanden als invoer:</p>
+      <ul style="padding-left:20px; margin:8px 0;">
+        <li><strong>Taakanalyse (.docx)</strong> — Word-document met taken per functie, gegenereerd via de Taakanalyse-tool van Bright Work Solutions</li>
+        <li><strong>Skillset (.xlsx)</strong> — Excel-bestand met skills gekoppeld aan taken, inclusief taxonomie-identifiers (ESCO URI, Lightcast ID of CompetentNL URI)</li>
+      </ul>
+
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:20px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Skillstaxonomieën</h3>
+      <p>De tool ondersteunt drie skillstaxonomieën:</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:10px 0;">
+        <div style="background:#E8EEF7; border-radius:8px; padding:12px; text-align:center;">
+          <div style="font-weight:700; color:var(--accent); margin-bottom:4px;">ESCO</div>
+          <div style="font-size:11px; color:#555;">Europese standaard<br>URI-identifier<br>esco.ec.europa.eu</div>
+        </div>
+        <div style="background:#E8F5E9; border-radius:8px; padding:12px; text-align:center;">
+          <div style="font-weight:700; color:var(--groen); margin-bottom:4px;">Lightcast</div>
+          <div style="font-size:11px; color:#555;">Internationale standaard<br>Alfanumerieke code<br>lightcast.io</div>
+        </div>
+        <div style="background:#EDE7F6; border-radius:8px; padding:12px; text-align:center;">
+          <div style="font-weight:700; color:#4B2D83; margin-bottom:4px;">CompetentNL</div>
+          <div style="font-size:11px; color:#555;">Nederlandse standaard<br>URI-identifier<br>competentnl.nl</div>
+        </div>
+      </div>
+
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:20px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Technologie</h3>
+      <ul style="padding-left:20px; margin:8px 0;">
+        <li><strong>AI-model:</strong> Claude Sonnet (Anthropic) — genereert kennis, vaardigheid, verantwoordelijkheid en leeruitkomst per handeling</li>
+        <li><strong>Skills:</strong> worden rechtstreeks overgenomen uit de invoer — de AI verzint geen skills</li>
+        <li><strong>Platform:</strong> Vercel (serverless deployment)</li>
+      </ul>
+
+      <h3 style="color:var(--primary); font-size:15px; font-weight:700; margin:20px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--accent2);">Bronnen</h3>
+      <ul style="padding-left:20px; margin:8px 0;">
+        <li>ESCO — European Skills, Competences, Qualifications and Occupations: <a href="https://esco.ec.europa.eu" target="_blank" style="color:var(--accent);">esco.ec.europa.eu</a></li>
+        <li>Lightcast Skills Taxonomy: <a href="https://lightcast.io" target="_blank" style="color:var(--accent);">lightcast.io</a></li>
+        <li>CompetentNL — Nationale skillstaal: <a href="https://competentnl.nl" target="_blank" style="color:var(--accent);">competentnl.nl</a></li>
+        <li>Bright Work Solutions: <a href="https://brightworksolutions.nl" target="_blank" style="color:var(--accent);">brightworksolutions.nl</a></li>
+      </ul>
+
+      <div style="background:#E8EEF7; border-radius:8px; padding:14px; margin-top:20px; font-size:12px; color:#555; text-align:center;">
+        Bright Work Solutions | Leeruitkomsten Generator v1.0 Beta | brightworksolutions.nl
+      </div>
+    </div>
+  </div>
+</div>
+
 
   <div class="intro-block">
     <h2>Hoe werkt het?</h2>
@@ -579,7 +698,13 @@ INSTRUCTIES:
 - Stel voor elke taak taakgerichte leeruitkomsten op
 - Knip elke taak op in 2-3 concrete handelingen
 - Per handeling: kennis, vaardigheid, verantwoordelijkheid en leeruitkomst
-- Leeruitkomst formule: "Na de training kan de ${functietitel} zelfstandig [handeling] [context] zodat [resultaat]"
+- Leeruitkomst formule: "Na de training kan de ${functietitel} [handeling] [context] zodat [resultaat]"
+- Pas de formulering aan op het bekwaamheidsniveau van de gekoppelde skill:
+  * Beginner: "...onder toezicht van een ervaren collega en aan de hand van een werkinstructie"
+  * Basis: "...met af en toe ondersteuning bij afwijkingen"
+  * Gemiddeld: "...zelfstandig, en kan bij de meeste problemen zelfstandig een oplossing vinden"
+  * Gevorderd: "...zelfstandig en zonder begeleiding, ook bij complexe situaties"
+  * Expert: "...zelfstandig op het hoogste niveau en kan anderen instrueren en het werkproces verbeteren"
 - Geef bij elke handeling de taak-naam EXACT terug zoals hierboven vermeld zodat ik de skills kan koppelen
 - Geef maximaal 5 taken
 
@@ -744,11 +869,14 @@ function renderResults(data) {
         const lightcastBadge = s.lightcast_id
           ? `<div style="font-size:9px;color:#6B7280;margin-top:2px;font-family:monospace;">Lightcast: ${s.lightcast_id}</div>`
           : '';
-        return `<div style="margin:4px 0;padding:8px 12px;background:${s.type==='Hard'?'#FEE2E2':'#EFF6FF'};border-radius:8px;">
-          <span style="font-weight:700;font-size:12px;color:${s.type==='Hard'?'#B91C1C':'#1D4ED8'};">${s.naam}</span>
-          <span class="niveau-tag ${niveauClass(s.niveau)}" style="margin-left:8px;">${s.niveau}</span>
-          ${escoLink}
-          ${lightcastBadge}
+        return `<div style="margin:4px 0;padding:8px 12px;background:${s.type==='Hard'?'#FEE2E2':'#EFF6FF'};border-radius:8px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;">
+            <span style="font-weight:700;font-size:12px;color:${s.type==='Hard'?'#B91C1C':'#1D4ED8'};">${s.naam}</span>
+            <span style="font-size:10px;margin-left:6px;padding:2px 6px;border-radius:10px;background:${s.type==='Hard'?'#B91C1C':'#1D4ED8'};color:#fff;">${s.type}</span>
+            <span class="niveau-tag ${niveauClass(s.niveau)}" style="margin-left:6px;">${s.niveau}</span>
+            ${escoLink}
+            ${lightcastBadge}
+          </div>
         </div>`;
       }).join('');
 
