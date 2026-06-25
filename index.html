@@ -607,20 +607,21 @@ Antwoord ALLEEN in JSON:
 
     let parsed;
     try {
-      // Probeer JSON te extraheren - verwijder markdown en zoek het JSON-blok
-      let clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      // Zoek het eerste { en laatste } om JSON te isoleren
+      let clean = raw
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
       const start = clean.indexOf('{');
       const end = clean.lastIndexOf('}');
-      if (start !== -1 && end !== -1) {
+      if (start !== -1 && end !== -1 && end > start) {
         clean = clean.substring(start, end + 1);
       }
-      
       parsed = JSON.parse(clean);
+      if (!parsed.taken || !Array.isArray(parsed.taken)) {
+        throw new Error('Geen taken array gevonden');
+      }
     } catch(e) {
-      // Als JSON parsing mislukt, toon de ruwe output voor debugging
-      throw new Error('JSON parsing mislukt. Antwoord: ' + raw.substring(0, 200));
+      throw new Error('JSON parsing mislukt: ' + e.message + ' | Output: ' + raw.substring(0, 300));
     }
 
     setProgress(95, 'Resultaten worden weergegeven...');
