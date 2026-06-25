@@ -423,6 +423,7 @@
 let docxText = '';
 let xlsxData = [];
 let functietitel = '';
+let taakSkillsMap = {}; // taak -> lijst van skills uit Excel
 
 function handleDocx(input) {
   const file = input.files[0];
@@ -460,6 +461,35 @@ function handleXlsx(input) {
         break;
       }
     }
+
+    // Bouw taak->skills mapping: elke skill heeft een lijst van gekoppelde taken
+    taakSkillsMap = {};
+    for (const row of rows) {
+      const takenStr = row['Gekoppelde taken'] || '';
+      const skill = {
+        naam: row['Skill'] || '',
+        type: row['Type'] || '',
+        niveau: row['Niveau'] || '',
+        esco_uri: row['ESCO URI'] || '',
+        lightcast_id: row['Lightcast ID'] || '',
+        definitie: row['ESCO Definitie'] || ''
+      };
+      // Splits de taken string op regeleindes of nummers
+      const taakMatches = takenStr.match(/[A-Z][a-z].*?(?=\n[A-Z]|$)/gs) || takenStr.split('\n').filter(t => t.trim());
+      if (taakMatches.length === 0 && takenStr.trim()) {
+        // Als er geen splits zijn, gebruik de hele string als één taak
+        const key = takenStr.trim().substring(0, 80);
+        if (!taakSkillsMap[key]) taakSkillsMap[key] = [];
+        taakSkillsMap[key].push(skill);
+      } else {
+        for (const taak of taakMatches) {
+          const key = taak.trim().substring(0, 80);
+          if (key && !taakSkillsMap[key]) taakSkillsMap[key] = [];
+          if (key) taakSkillsMap[key].push(skill);
+        }
+      }
+    }
+    
     checkReady();
   };
   reader.readAsArrayBuffer(file);
@@ -491,54 +521,61 @@ async function generateLeeruitkomsten() {
 
   // Bouw skillset samenvatting
   const skillsSamenvatting = xlsxData.map(row => {
-    return `- Type: ${row['Type'] || ''} | Skill: ${row['Skill'] || ''} | Niveau: ${row['Niveau'] || ''} | ESCO URI: ${row['ESCO URI'] || ''} | Lightcast ID: ${row['Lightcast ID'] || ''} | Gekoppelde taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
+    return `- ${row['Type'] || ''} | ${row['Skill'] || ''} | Niveau: ${row['Niveau'] || ''} | Taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
   }).join('\n');
 
   setProgress(25, 'Data voorbereid, AI wordt aangesproken...');
 
+  // Maak een compacte takenlijst met bijbehorende skills voor de prompt
+  const takenMetSkills = xlsxData.reduce((acc, row) => {
+    const takenStr = row['Gekoppelde taken'] || '';
+    const skillInfo = `${row['Type']}: ${row['Skill']} (${row['Niveau']})`;
+    const taakLines = takenStr.split('\n').filter(t => t.trim().length > 10);
+    for (const taak of taakLines) {
+      const key = taak.trim().substring(0, 100);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(skillInfo);
+    }
+    return acc;
+  }, {});
+
+  const takenOverzicht = Object.entries(takenMetSkills).slice(0, 10).map(([taak, skills]) => 
+    `TAAK: ${taak}\nSKILLS: ${skills.join(' | ')}`
+  ).join('\n\n');
+
   const prompt = `Je bent een expert in het opstellen van taakgerichte leeruitkomsten voor beroepsopleidingen.
 
-Je ontvangt een taakanalyse (Word-tekst) en een skillset (Excel-data) voor de functie: ${functietitel || 'onbekende functie'}.
+Functie: ${functietitel || 'onbekende functie'}
 
-TAAKANALYSE:
-${docxText.substring(0, 3000)}
+TAKEN MET GEKOPPELDE ESCO SKILLS:
+${takenOverzicht}
 
-SKILLSET (ESCO) — gebruik ALLEEN deze skills, verzin er GEEN:
-${skillsSamenvatting.substring(0, 2000)}
+VOLLEDIGE TAAKANALYSE:
+${docxText.substring(0, 2000)}
 
-BELANGRIJKE REGELS:
-1. Gebruik UITSLUITEND de ESCO-skills die in de skillset staan — nooit zelf skills verzinnen
-2. Neem de exacte ESCO skill-naam, ESCO URI en Lightcast ID over uit de invoer
-3. Koppel elke handeling aan de skills die in de taakanalyse aan die taak zijn gekoppeld
-4. Een taakgerichte leeruitkomst beschrijft wat iemand NA de training kan doen op de werkvloer — niet wat ze leren tijdens de training
-5. Gebruik de formule: "Na de training kan de [functietitel] zelfstandig [concrete handeling] [context/conditie] zodat [gewenst resultaat]"
+INSTRUCTIES:
+- Stel voor elke taak taakgerichte leeruitkomsten op
+- Knip elke taak op in 2-3 concrete handelingen
+- Per handeling: kennis, vaardigheid, verantwoordelijkheid en leeruitkomst
+- Leeruitkomst formule: "Na de training kan de ${functietitel} zelfstandig [handeling] [context] zodat [resultaat]"
+- Geef bij elke handeling de taak-naam EXACT terug zoals hierboven vermeld zodat ik de skills kan koppelen
+- Geef maximaal 5 taken
 
-Stel voor ELKE UNIEKE TAAK uit de taakanalyse een taakgerichte leeruitkomst op.
-Geef maximaal 5 taken terug.
-
-Antwoord ALLEEN in JSON, geen uitleg, geen markdown:
+Antwoord ALLEEN in JSON:
 {
   "functietitel": "...",
   "taken": [
     {
       "nr": "T01",
       "taak": "...",
+      "taak_key": "eerste 80 tekens van de taaknaam EXACT zoals in de invoer",
       "handelingen": [
         {
           "handeling": "...",
           "kennis": "...",
           "vaardigheid": "...",
           "verantwoordelijkheid": "...",
-          "leeruitkomst": "Na de training kan de [functietitel] ...",
-          "skills": [
-            {
-              "naam": "...",
-              "type": "Hard/Soft",
-              "niveau": "...",
-              "esco_uri": "http://data.europa.eu/esco/skill/...",
-              "lightcast_id": "..."
-            }
-          ]
+          "leeruitkomst": "Na de training kan de ${functietitel} ..."
         }
       ]
     }
@@ -587,6 +624,47 @@ Antwoord ALLEEN in JSON, geen uitleg, geen markdown:
     }
 
     setProgress(95, 'Resultaten worden weergegeven...');
+    // Koppel skills uit Excel aan de taken op basis van taak_key
+    for (const taak of (parsed.taken || [])) {
+      const taakKey = (taak.taak_key || taak.taak || '').substring(0, 80);
+      
+      // Zoek matching skills: kijk welke skills deze taak bevatten
+      const matchedSkills = [];
+      for (const row of xlsxData) {
+        const takenStr = row['Gekoppelde taken'] || '';
+        // Check of de taaknaam voorkomt in de gekoppelde taken
+        const taakNaam = taak.taak.substring(0, 50).toLowerCase();
+        const taakKeyShort = taakKey.substring(0, 50).toLowerCase();
+        if (takenStr.toLowerCase().includes(taakNaam) || takenStr.toLowerCase().includes(taakKeyShort)) {
+          matchedSkills.push({
+            naam: row['Skill'] || '',
+            type: row['Type'] || '',
+            niveau: row['Niveau'] || '',
+            esco_uri: row['ESCO URI'] || '',
+            lightcast_id: row['Lightcast ID'] || '',
+            definitie: row['ESCO Definitie'] || ''
+          });
+        }
+      }
+      
+      // Fallback: pak alle skills als er geen match is
+      const skillsToUse = matchedSkills.length > 0 ? matchedSkills : xlsxData.map(row => ({
+        naam: row['Skill'] || '',
+        type: row['Type'] || '',
+        niveau: row['Niveau'] || '',
+        esco_uri: row['ESCO URI'] || '',
+        lightcast_id: row['Lightcast ID'] || ''
+      })).filter(s => s.naam);
+
+      // Verdeel skills over de handelingen
+      for (let i = 0; i < (taak.handelingen || []).length; i++) {
+        const h = taak.handelingen[i];
+        // Geef elke handeling 1-2 skills
+        const start = i % skillsToUse.length;
+        h.skills = skillsToUse.slice(start, start + 2).filter(s => s.naam);
+      }
+    }
+    
     renderResults(parsed);
     setProgress(100, 'Klaar!');
 
@@ -635,9 +713,18 @@ function renderResults(data) {
 
     for (const h of (taak.handelingen || [])) {
       const skillTags = (h.skills || []).map(s => {
-        const escoLink = s.esco_uri ? `<a href="${s.esco_uri}" target="_blank" style="color:inherit;opacity:0.7;font-size:10px;margin-left:4px;" title="ESCO: ${s.esco_uri}">🔗</a>` : '';
-        const lightcastBadge = s.lightcast_id ? `<span style="font-size:9px;opacity:0.6;margin-left:4px;" title="Lightcast ID: ${s.lightcast_id}">#${s.lightcast_id.substring(0,8)}</span>` : '';
-        return `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam}${escoLink}<span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span>${lightcastBadge}</span>`;
+        const escoLink = s.esco_uri
+          ? `<a href="${s.esco_uri}" target="_blank" style="color:inherit;font-size:10px;margin-left:6px;opacity:0.6;text-decoration:none;" title="${s.esco_uri}">ESCO 🔗</a>`
+          : '';
+        const lightcastBadge = s.lightcast_id
+          ? `<div style="font-size:9px;color:#6B7280;margin-top:2px;font-family:monospace;">Lightcast: ${s.lightcast_id}</div>`
+          : '';
+        return `<div style="margin:4px 0;padding:8px 12px;background:${s.type==='Hard'?'#FEE2E2':'#EFF6FF'};border-radius:8px;">
+          <span style="font-weight:700;font-size:12px;color:${s.type==='Hard'?'#B91C1C':'#1D4ED8'};">${s.naam}</span>
+          <span class="niveau-tag ${niveauClass(s.niveau)}" style="margin-left:8px;">${s.niveau}</span>
+          ${escoLink}
+          ${lightcastBadge}
+        </div>`;
       }).join('');
 
       html += `
@@ -662,7 +749,7 @@ function renderResults(data) {
             <div class="lo-label">⭐ Taakgerichte leeruitkomst</div>
             <div class="lo-text">${h.leeruitkomst}</div>
           </div>
-          ${skillTags ? `<div class="skill-tags">${skillTags}</div>` : ''}
+          ${skillTags ? `<div style="margin-top:10px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6B7280;margin-bottom:4px;">ESCO Skills</div>${skillTags}</div>` : ''}
         </div>
       `;
     }
@@ -722,20 +809,18 @@ function exporteerExcel() {
   const wb = XLSX.utils.book_new();
   const rows = [['Functie', _lastData.functietitel || '']];
   rows.push([]);
-  rows.push(['Taaknr', 'Taak', 'Handeling', 'Kennis', 'Vaardigheid', 'Verantwoordelijkheid', 'Leeruitkomst', 'Skills', 'Niveau', 'ESCO URI', 'Lightcast ID']);
+  rows.push(['Taaknr', 'Taak', 'Handeling', 'Kennis', 'Vaardigheid', 'Verantwoordelijkheid', 'Leeruitkomst', 'Skills', 'Niveau']);
 
   for (const taak of (_lastData.taken || [])) {
     for (const h of (taak.handelingen || [])) {
       const skills = (h.skills || []).map(s => s.naam).join(', ');
       const niveaus = (h.skills || []).map(s => s.niveau).join(', ');
-      const escoUris = (h.skills || []).map(s => s.esco_uri || '').join(', ');
-      const lightcastIds = (h.skills || []).map(s => s.lightcast_id || '').join(', ');
-      rows.push([taak.nr, taak.taak, h.handeling, h.kennis, h.vaardigheid, h.verantwoordelijkheid, h.leeruitkomst, skills, niveaus, escoUris, lightcastIds]);
+      rows.push([taak.nr, taak.taak, h.handeling, h.kennis, h.vaardigheid, h.verantwoordelijkheid, h.leeruitkomst, skills, niveaus]);
     }
   }
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [8,30,28,28,28,28,50,20,12,40,22].map(w => ({wch:w}));
+  ws['!cols'] = [8,30,28,28,28,28,50,20,12].map(w => ({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws, 'Leeruitkomsten');
   XLSX.writeFile(wb, `Leeruitkomsten_${(_lastData.functietitel || 'export').replace(/\s+/g,'_')}.xlsx`);
 }
