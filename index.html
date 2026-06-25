@@ -544,16 +544,21 @@ Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown
     const response = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ prompt })
     });
 
     setProgress(75, 'Leeruitkomsten worden opgesteld...');
 
     const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'API fout: ' + response.status);
+    }
+    
+    if (!data.content) {
+      throw new Error('Geen antwoord ontvangen van AI. Controleer de API key in Vercel.');
+    }
+    
     const raw = data.content.map(i => i.text || '').join('');
 
     let parsed;
