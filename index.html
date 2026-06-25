@@ -563,10 +563,20 @@ Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown
 
     let parsed;
     try {
-      const clean = raw.replace(/```json|```/g, '').trim();
+      // Probeer JSON te extraheren - verwijder markdown en zoek het JSON-blok
+      let clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      // Zoek het eerste { en laatste } om JSON te isoleren
+      const start = clean.indexOf('{');
+      const end = clean.lastIndexOf('}');
+      if (start !== -1 && end !== -1) {
+        clean = clean.substring(start, end + 1);
+      }
+      
       parsed = JSON.parse(clean);
     } catch(e) {
-      throw new Error('Kon het antwoord niet verwerken. Probeer opnieuw.');
+      // Als JSON parsing mislukt, toon de ruwe output voor debugging
+      throw new Error('JSON parsing mislukt. Antwoord: ' + raw.substring(0, 200));
     }
 
     setProgress(95, 'Resultaten worden weergegeven...');
