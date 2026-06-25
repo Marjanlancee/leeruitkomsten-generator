@@ -607,14 +607,14 @@ Antwoord ALLEEN in JSON:
 
     let parsed;
     try {
-      let clean = raw
-        .replace(/```json\s*/gi, '')
-        .replace(/```\s*/g, '')
-        .trim();
-      const start = clean.indexOf('{');
-      const end = clean.lastIndexOf('}');
-      if (start !== -1 && end !== -1 && end > start) {
-        clean = clean.substring(start, end + 1);
+      // Verwijder alle mogelijke markdown omhulsels
+      let clean = raw.trim();
+      // Verwijder ```json of ``` aan het begin
+      clean = clean.replace(/^[\s\S]*?(?=\{)/, '');
+      // Verwijder alles na de laatste }
+      const lastBrace = clean.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        clean = clean.substring(0, lastBrace + 1);
       }
       parsed = JSON.parse(clean);
       if (!parsed.taken || !Array.isArray(parsed.taken)) {
