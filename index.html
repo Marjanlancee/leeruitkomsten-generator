@@ -8,72 +8,97 @@
 function openPDF() {
   if (!_lastData) return;
   const datum = new Date().toLocaleDateString('nl-NL');
-  const aantalTaken = (_lastData.taken || []).length;
-  const aantalHandelingen = (_lastData.taken || []).reduce((a, t) => a + (t.handelingen || []).length, 0);
 
-  const niveauKleur = (n) => {
-    if (!n) return {bg:'#E2E6EE',txt:'#555'};
-    const l = n.toLowerCase();
-    if (l.includes('beginner')) return {bg:'#F0F0F0',txt:'#444'};
-    if (l.includes('basis')) return {bg:'#D8F3DC',txt:'#2d6a4f'};
-    if (l.includes('gemiddeld')) return {bg:'#D0EAFF',txt:'#1a56db'};
-    if (l.includes('gevorderd')) return {bg:'#FEF3D0',txt:'#7a5c00'};
-    if (l.includes('expert')) return {bg:'#FCE4E4',txt:'#9b2226'};
-    return {bg:'#E2E6EE',txt:'#555'};
-  };
+  // Kopieer de volledige CSS van de huidige pagina mee
+  const styles = Array.from(document.styleSheets).map(ss => {
+    try { return Array.from(ss.cssRules).map(r => r.cssText).join('\n'); }
+    catch(e) { return ''; }
+  }).join('\n');
 
   let takenHTML = '';
   for (const taak of (_lastData.taken || [])) {
-    takenHTML += '<div style="background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.07);margin-bottom:24px;overflow:hidden;border:1px solid #E2E6EE;">';
-    takenHTML += '<div style="background:#1F3864;color:white;padding:14px 20px;display:flex;align-items:center;gap:12px;">';
-    takenHTML += '<span style="background:#C2185B;color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;">' + taak.nr + '</span>';
-    takenHTML += '<span style="font-size:14px;font-weight:600;">' + taak.taak + '</span></div>';
+    const taakNr = 'Taak ' + (parseInt(taak.nr.replace(/[^0-9]/g,'')) || taak.nr);
+    takenHTML += `<div class="taak-card">
+      <div class="taak-header">
+        <span class="taak-nr">${taakNr}</span>
+        <span class="taak-titel">${taak.taak}</span>
+      </div>`;
 
     for (const h of (taak.handelingen || [])) {
-      takenHTML += '<div style="border-bottom:1px solid #E2E6EE;">';
-      takenHTML += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#2E5FA3;padding:12px 20px 4px;">Handeling</div>';
-      takenHTML += '<div style="font-size:14px;font-weight:700;color:#1F3864;padding:0 20px 14px;border-bottom:1px solid #E2E6EE;">' + h.handeling + '</div>';
-      
-      takenHTML += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;">';
-      takenHTML += '<div style="background:#E8EEF7;border-radius:8px;padding:14px;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#2E5FA3;margin-bottom:8px;">KENNIS</div><div style="font-size:12px;line-height:1.6;">' + (h.kennis||'') + '</div></div>';
-      takenHTML += '<div style="background:#E8F5E9;border-radius:8px;padding:14px;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#1E7145;margin-bottom:8px;">VAARDIGHEID</div><div style="font-size:12px;line-height:1.6;">' + (h.vaardigheid||'') + '</div></div>';
-      takenHTML += '<div style="background:#EDE7F6;border-radius:8px;padding:14px;grid-column:1/-1;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#4B2D83;margin-bottom:8px;">VERANTWOORDELIJKHEID</div><div style="font-size:12px;line-height:1.6;">' + (h.verantwoordelijkheid||'') + '</div></div>';
-      takenHTML += '</div>';
+      const skillTags = (h.skills || []).map(s =>
+        `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam} <span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span></span>`
+      ).join('');
 
-      takenHTML += '<div style="background:#FFFDE7;border-left:4px solid #F57F17;margin:0 20px 16px;padding:14px 16px;border-radius:0 8px 8px 0;">';
-      takenHTML += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#B45309;margin-bottom:8px;">TAAKGERICHTE LEERUITKOMST</div>';
-      takenHTML += '<div style="font-size:14px;font-weight:700;line-height:1.6;">' + (h.leeruitkomst||'') + '</div></div>';
-
-      if (h.skills && h.skills.length) {
-        takenHTML += '<div style="padding:0 20px 16px;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">ESCO SKILLS</div>';
-        h.skills.forEach(s => {
-          const nk = niveauKleur(s.niveau);
-          const isHard = s.type === 'Hard';
-          const escoLink = s.esco_uri ? ' <a href="' + s.esco_uri + '" target="_blank" style="color:#2E5FA3;font-size:10px;text-decoration:none;">ESCO ↗</a>' : '';
-          takenHTML += '<div style="display:inline-block;margin:3px;padding:5px 10px;border-radius:6px;background:' + (isHard?'#FEE2E2':'#EFF6FF') + ';">';
-          takenHTML += '<span style="font-weight:700;color:' + (isHard?'#B91C1C':'#1D4ED8') + ';">' + s.naam + '</span>';
-          takenHTML += '<span style="padding:2px 7px;border-radius:10px;background:' + nk.bg + ';color:' + nk.txt + ';font-weight:700;font-size:10px;margin-left:6px;">' + (s.niveau||'') + '</span>';
-          takenHTML += escoLink + '</div>';
-        });
-        takenHTML += '</div>';
-      }
-      takenHTML += '</div>';
+      takenHTML += `<div class="handeling-block">
+        <div class="handeling-label">Handeling</div>
+        <div class="handeling-naam">${h.handeling}</div>
+        <div class="leeruitkomst-grid">
+          <div class="lo-item kennis"><div class="lo-label">📘 Kennis</div><div class="lo-text">${h.kennis}</div></div>
+          <div class="lo-item vaardigheid"><div class="lo-label">🔧 Vaardigheid</div><div class="lo-text">${h.vaardigheid}</div></div>
+          <div class="lo-item verantwoordelijkheid"><div class="lo-label">✅ Verantwoordelijkheid</div><div class="lo-text">${h.verantwoordelijkheid}</div></div>
+        </div>
+        <div class="leeruitkomst-statement"><div class="lo-text">${h.leeruitkomst}</div></div>
+        ${skillTags ? `<div class="skill-tags"><div class="skills-label">Skills</div>${skillTags}</div>` : ''}
+      </div>`;
     }
     takenHTML += '</div>';
   }
 
-  const html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Taakgerichte Leeruitkomsten</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#F7F8FA;color:#1a1d23;}.print-bar{background:#1F3864;color:white;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;}.print-btn{background:#C2185B;color:white;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;}.page{max-width:900px;margin:0 auto;padding:32px;}.doc-header{background:#1F3864;color:white;padding:24px 28px;border-radius:10px;margin-bottom:24px;}@media print{.print-bar{display:none;}body{background:white;}.page{padding:0;max-width:100%;}}</style></head><body>';
-  const finalHtml = html +
-    '<div class="print-bar"><span style="font-size:13px;">Taakgerichte Leeruitkomsten — ' + (_lastData.functietitel||'') + '</span><button class="print-btn" onclick="window.print()">🖨️ Afdrukken / Opslaan als PDF</button></div>' +
-    '<div class="page"><div class="doc-header"><h1 style="font-size:20px;font-weight:700;margin-bottom:4px;">Taakgerichte Leeruitkomsten</h1><p style="font-size:12px;opacity:0.75;">' + (_lastData.functietitel||'') + ' | Gegenereerd op ' + datum + '</p></div>' +
-    '<p style="font-size:12px;color:#555;margin-bottom:20px;">' + aantalTaken + ' taken | ' + aantalHandelingen + ' handelingen</p>' +
-    takenHTML +
-    '<div style="margin-top:32px;padding-top:16px;border-top:2px solid #E2E6EE;display:flex;justify-content:space-between;font-size:11px;color:#888;"><span>Bright Work Solutions</span><span>' + datum + '</span></div>' +
-    '</div></body></html>';
+  const html = `<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Leeruitkomsten — ${_lastData.functietitel || ''}</title>
+<style>
+${styles}
+body { background: #f7f8fa; }
+.print-bar { background: #1F3864; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+.print-btn { background: #C2185B; color: white; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.pdf-page { max-width: 960px; margin: 0 auto; padding: 32px; }
+.pdf-header { background: #1F3864; color: white; padding: 24px 28px; border-radius: 10px; margin-bottom: 24px; }
+@media print { .print-bar { display: none; } body { background: white; } .pdf-page { padding: 0; max-width: 100%; } }
+</style>
+</head>
+<body>
+<div class="print-bar">
+  <span>Leeruitkomsten — ${_lastData.functietitel || ''} | ${datum}</span>
+  <button class="print-btn" onclick="window.print()">🖨️ Afdrukken / Opslaan als PDF</button>
+</div>
+<div class="pdf-page">
+  <div class="pdf-header">
+    <h1 style="font-size:22px;font-weight:700;margin-bottom:4px;">Taakgerichte Leeruitkomsten</h1>
+    <p style="font-size:13px;opacity:0.8;">${_lastData.functietitel || ''} &nbsp;|&nbsp; ${datum}</p>
+  </div>
+  ${takenHTML}
+</div>
+</body></html>`;
 
-  const blob = new Blob([finalHtml], { type: 'text/html' });
+  const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank');
+}
+
+function downloadExcel() {
+  if (!_lastData) return;
+  const rows = [['Functie', _lastData.functietitel || ''], ['', ''], ['Taaknr', 'Taak', 'Handeling', 'Kennis', 'Vaardigheid', 'Verantwoordelijkheid', 'Leeruitkomst', 'Skill', 'Type', 'Niveau']];
+  for (const taak of (_lastData.taken || [])) {
+    for (const h of (taak.handelingen || [])) {
+      const skills = h.skills || [];
+      if (skills.length === 0) {
+        rows.push([taak.nr, taak.taak, h.handeling, h.kennis, h.vaardigheid, h.verantwoordelijkheid, h.leeruitkomst, '', '', '']);
+      } else {
+        skills.forEach((s, i) => {
+          rows.push([i===0?taak.nr:'', i===0?taak.taak:'', i===0?h.handeling:'', i===0?h.kennis:'', i===0?h.vaardigheid:'', i===0?h.verantwoordelijkheid:'', i===0?h.leeruitkomst:'', s.naam, s.type, s.niveau]);
+        });
+      }
+    }
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:8},{wch:40},{wch:35},{wch:40},{wch:40},{wch:40},{wch:60},{wch:35},{wch:8},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Leeruitkomsten');
+  const datum = new Date().toLocaleDateString('nl-NL').replace(/\//g,'-');
+  XLSX.writeFile(wb, 'Leeruitkomsten_' + (_lastData.functietitel||'').replace(/\s+/g,'_') + '_' + datum + '.xlsx');
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -346,11 +371,19 @@ function openPDF() {
     margin-top: 10px;
   }
 
-  .skill-tag {
+  .skills-label {
     font-size: 11px;
-    padding: 4px 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #6B7280;
+    margin-bottom: 8px;
+  }
+  .skill-tag {
+    font-size: 14px;
+    padding: 6px 14px;
     border-radius: 20px;
-    font-weight: 600;
+    font-weight: 700;
   }
 
   .skill-tag.hard { background: #FEE2E2; color: #B91C1C; }
@@ -672,14 +705,14 @@ function renderResults(data) {
     html += `
       <div class="taak-card">
         <div class="taak-header">
-          <span class="taak-nr">${taak.nr}</span>
+          <span class="taak-nr">Taak ${parseInt(taak.nr.replace(/[^0-9]/g,"")) || taak.nr}</span>
           <span class="taak-titel">${taak.taak}</span>
         </div>
     `;
 
     for (const h of (taak.handelingen || [])) {
       const skillTags = (h.skills || []).map(s =>
-        `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam}<span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span></span>`
+        `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam} <span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span></span>`
       ).join('');
 
       html += `
@@ -701,10 +734,9 @@ function renderResults(data) {
             </div>
           </div>
           <div class="leeruitkomst-statement">
-            <div class="lo-label">⭐ Taakgerichte leeruitkomst</div>
             <div class="lo-text">${h.leeruitkomst}</div>
           </div>
-          ${skillTags ? `<div class="skill-tags">${skillTags}</div>` : ''}
+          ${skillTags ? `<div class="skill-tags"><div class="skills-label">Skills</div>${skillTags}</div>` : ''}
         </div>
       `;
     }
@@ -715,6 +747,9 @@ function renderResults(data) {
   html += `
     <button class="btn btn-secondary" onclick="kopieerAlles()">
       📋 Kopieer alle leeruitkomsten
+    </button>
+    <button class="btn btn-secondary" onclick="downloadExcel()" style="background:#1E7145;">
+      📊 Download Excel
     </button>
     <button class="btn btn-secondary" onclick="openPDF()" style="background:#4B2D83;">
       📄 Opslaan als PDF
