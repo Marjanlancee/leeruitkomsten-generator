@@ -37,7 +37,7 @@ function openPDF() {
           <div class="lo-item vaardigheid"><div class="lo-label">🔧 Vaardigheid</div><div class="lo-text">${h.vaardigheid}</div></div>
           <div class="lo-item verantwoordelijkheid"><div class="lo-label">✅ Verantwoordelijkheid</div><div class="lo-text">${h.verantwoordelijkheid}</div></div>
         </div>
-        <div class="leeruitkomst-statement"><div class="lo-text">${h.leeruitkomst}</div></div>
+        <div class="leeruitkomst-statement"><div class="lo-label">⭐ Leeruitkomst</div><div class="lo-text">${h.leeruitkomst}</div></div>
         ${skillTags ? `<div class="skill-tags"><div class="skills-label">Skills</div>${skillTags}</div>` : ''}
       </div>`;
     }
@@ -526,6 +526,7 @@ function downloadExcel() {
 let docxText = '';
 let xlsxData = [];
 let functietitel = '';
+let _lastData = null;
 
 function handleDocx(input) {
   const file = input.files[0];
@@ -666,6 +667,7 @@ Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown
     }
 
     setProgress(95, 'Resultaten worden weergegeven...');
+    _lastData = parsed;
     renderResults(parsed);
     setProgress(100, 'Klaar!');
 
@@ -734,6 +736,7 @@ function renderResults(data) {
             </div>
           </div>
           <div class="leeruitkomst-statement">
+            <div class="lo-label">⭐ Leeruitkomst</div>
             <div class="lo-text">${h.leeruitkomst}</div>
           </div>
           ${skillTags ? `<div class="skill-tags"><div class="skills-label">Skills</div>${skillTags}</div>` : ''}
