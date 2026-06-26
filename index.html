@@ -478,10 +478,9 @@ function downloadExcel() {
   <div class="intro-block">
     <h2>Hoe werkt het?</h2>
     <div class="steps">
-      <div class="step"><span>📄</span>Upload taakanalyse (Word)</div>
-      <div class="step"><span>📊</span>Upload skillset (Excel)</div>
+      <div class="step"><span>📋</span>Upload definitieve skillset (Word of Excel)</div>
       <div class="step"><span>⚡</span>Genereer leeruitkomsten</div>
-      <div class="step"><span>📋</span>Kopieer of exporteer</div>
+      <div class="step"><span>📊</span>Download Excel of PDF</div>
     </div>
   </div>
 
@@ -537,9 +536,6 @@ let _lastData = null;
 function handleDocx(input) {
   const file = input.files[0];
   if (!file) return;
-  document.getElementById('docx-name').textContent = '✓ ' + file.name;
-  document.getElementById('card-docx').classList.add('loaded');
-
   const reader = new FileReader();
   reader.onload = async (e) => {
     const result = await mammoth.extractRawText({ arrayBuffer: e.target.result });
@@ -552,8 +548,6 @@ function handleDocx(input) {
 function handleXlsx(input) {
   const file = input.files[0];
   if (!file) return;
-  document.getElementById('xlsx-name').textContent = '✓ ' + file.name;
-  document.getElementById('card-xlsx').classList.add('loaded');
 
   const reader = new FileReader();
   reader.onload = (e) => {
