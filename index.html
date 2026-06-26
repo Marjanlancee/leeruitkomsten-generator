@@ -485,21 +485,13 @@ function downloadExcel() {
     </div>
   </div>
 
-  <div class="upload-grid">
-    <div class="upload-card" id="card-docx">
-      <input type="file" id="upload-docx" accept=".docx" onchange="handleDocx(this)">
-      <div class="upload-icon">📄</div>
-      <h3>Taakanalyse</h3>
-      <p>Upload het Word-document (.docx) met de taakanalyse</p>
-      <div class="filename" id="docx-name"></div>
-    </div>
-
-    <div class="upload-card" id="card-xlsx">
-      <input type="file" id="upload-xlsx" accept=".xlsx,.xls" onchange="handleXlsx(this)">
-      <div class="upload-icon">📊</div>
-      <h3>Skillset</h3>
-      <p>Upload het Excel-bestand (.xlsx) met de skillset</p>
-      <div class="filename" id="xlsx-name"></div>
+  <div class="upload-grid" style="grid-template-columns: 1fr;">
+    <div class="upload-card" id="card-skillset" onclick="document.getElementById('upload-skillset').click()">
+      <input type="file" id="upload-skillset" accept=".docx,.xlsx,.xls" onchange="handleSkillset(this)" style="display:none">
+      <div class="upload-icon">📋</div>
+      <h3>Definitieve skillset</h3>
+      <p>Upload de skillset als <strong>Word-document (.docx)</strong> of <strong>Excel-bestand (.xlsx)</strong> — beide worden ondersteund</p>
+      <div class="filename" id="skillset-name"></div>
     </div>
   </div>
 
@@ -525,6 +517,20 @@ function downloadExcel() {
 <script>
 let docxText = '';
 let xlsxData = [];
+
+function handleSkillset(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('skillset-name').textContent = '✓ ' + file.name;
+  document.getElementById('card-skillset').classList.add('loaded');
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'docx') {
+    handleDocx(input);
+  } else {
+    handleXlsx(input);
+  }
+}
 let functietitel = '';
 let _lastData = null;
 
@@ -570,7 +576,7 @@ function handleXlsx(input) {
 }
 
 function checkReady() {
-  const ready = docxText && xlsxData.length > 0;
+  const ready = docxText || xlsxData.length > 0;
   document.getElementById('btn-generate').disabled = !ready;
 }
 
