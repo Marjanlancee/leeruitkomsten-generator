@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Leeruitkomsten Generator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root {
@@ -422,6 +420,8 @@
 <script>
 let docxText = '';
 let xlsxData = [];
+let functietitel = '';
+let _lastData = null;
 
 function handleSkillset(input) {
   const file = input.files[0];
@@ -436,8 +436,6 @@ function handleSkillset(input) {
     handleXlsx(input);
   }
 }
-let functietitel = '';
-let _lastData = null;
 
 function handleDocx(input) {
   const file = input.files[0];
@@ -771,9 +769,11 @@ body { background: #f7f8fa; }
   const a = document.createElement('a');
   a.href = url;
   const naam = (_lastData.functietitel || 'Leeruitkomsten').replace(/\s+/g, '_');
-  const datum = new Date().toLocaleDateString('nl-NL').replace(/\//g, '-');
-  a.download = 'Leeruitkomsten_' + naam + '_' + datum + '.html';
+  const datumBestand = datum.replace(/\//g, '-');
+  a.download = 'Leeruitkomsten_' + naam + '_' + datumBestand + '.html';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
@@ -799,9 +799,6 @@ function downloadExcel() {
   const datum = new Date().toLocaleDateString('nl-NL').replace(/\//g,'-');
   XLSX.writeFile(wb, 'Leeruitkomsten_' + (_lastData.functietitel||'').replace(/\s+/g,'_') + '_' + datum + '.xlsx');
 }
-
-
-
 </script>
 </body>
 </html>
