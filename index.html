@@ -459,17 +459,32 @@ function handleXlsx(input) {
   reader.onload = (e) => {
     const wb = XLSX.read(e.target.result, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    xlsxData = rows;
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    // Haal functietitel op
-    const raw = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    // Haal functietitel op uit de metadata bovenaan
     for (const row of raw) {
       if (row[0] && String(row[0]).includes('Functie:')) {
         functietitel = String(row[0]).replace('Functie:', '').trim();
         break;
       }
     }
+
+    // Zoek de echte kopregel (Type / Skill / ...) — kan achter metadata-regels staan
+    let headerIdx = raw.findIndex(row =>
+      String(row[0] || '').trim().toLowerCase() === 'type' &&
+      String(row[1] || '').trim().toLowerCase() === 'skill'
+    );
+    if (headerIdx === -1) headerIdx = 0; // fallback als de structuur afwijkt
+
+    const headers = raw[headerIdx].map(h => String(h || '').trim());
+    const dataRows = raw.slice(headerIdx + 1).filter(row => row.some(cell => cell !== '' && cell !== undefined && cell !== null));
+
+    xlsxData = dataRows.map(row => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
+      return obj;
+    });
+
     checkReady();
   };
   reader.readAsArrayBuffer(file);
@@ -563,7 +578,8 @@ async function generateLeeruitkomsten() {
     const niveau = (type.toLowerCase().includes('soft') && softSkillMaxNiveau[key])
       ? softSkillMaxNiveau[key]
       : (row['Niveau'] || '');
-    return `- ${type} | ${naam} | Niveau: ${niveau} | Taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
+    const taken = row['Taak / Gekoppelde taken'] || row['Gekoppelde taken'] || row['Taken'] || '';
+    return `- ${type} | ${naam} | Niveau: ${niveau} | Taken: ${taken} | Definitie: ${row['ESCO Definitie'] || ''}`;
   }).join('\n');
 
   setProgress(25, 'Data voorbereid, AI wordt aangesproken...');
