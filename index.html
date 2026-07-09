@@ -6,7 +6,6 @@
 <title>Leeruitkomsten Generator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root {
     --bg: #F7F8FA;
@@ -741,8 +740,8 @@ function renderResults(data) {
     <button class="btn btn-secondary" onclick="downloadExcel()" style="background:#1E7145;">
       📊 Download Excel
     </button>
-    <button class="btn btn-secondary" onclick="downloadPDF(event)" style="background:#4B2D83;">
-      📄 Download PDF
+    <button class="btn btn-secondary" onclick="openPDF()" style="background:#4B2D83;">
+      📄 Download als HTML
     </button>
   `;
 
@@ -862,11 +861,19 @@ body { background: #f7f8fa; }
 
 function downloadPDF(event) {
   if (!_lastData) return;
-  const btn = event ? event.target.closest('button') : null;
-  const origLabel = btn ? btn.innerHTML : null;
-  if (btn) { btn.innerHTML = '⏳ PDF wordt gemaakt...'; btn.disabled = true; }
-
   const datum = new Date().toLocaleDateString('nl-NL');
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showError('Er kon geen nieuw venster geopend worden. Sta pop-ups toe voor deze site (icoontje rechts in de adresbalk) en klik nogmaals op Download PDF.');
+    return;
+  }
+
+  // Kopieer de volledige CSS van de huidige pagina mee
+  const styles = Array.from(document.styleSheets).map(ss => {
+    try { return Array.from(ss.cssRules).map(r => r.cssText).join('\n'); }
+    catch(e) { return ''; }
+  }).join('\n');
 
   let takenHTML = '';
   for (const taak of (_lastData.taken || [])) {
@@ -897,44 +904,43 @@ function downloadPDF(event) {
     takenHTML += '</div>';
   }
 
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '0';
-  container.style.top = (document.body.scrollHeight + 100) + 'px';
-  container.style.width = '760px';
-  container.style.background = '#ffffff';
-  container.style.zIndex = '-1';
-  container.innerHTML = `
-    <div class="pdf-header" style="background:#1F3864;color:#fff;padding:20px 24px;border-radius:10px;margin-bottom:20px;">
-      <h1 style="font-size:20px;font-weight:700;margin-bottom:4px;">Taakgerichte Leeruitkomsten</h1>
-      <p style="font-size:12px;opacity:0.85;">${_lastData.functietitel || ''} &nbsp;|&nbsp; ${datum}</p>
-    </div>
-    ${takenHTML}
-  `;
-  document.body.appendChild(container);
-
-  const naam = (_lastData.functietitel || 'Leeruitkomsten').replace(/\s+/g, '_');
-  const datumBestand = datum.replace(/\//g, '-');
-
-  const opts = {
-    margin: 10,
-    filename: 'Leeruitkomsten_' + naam + '_' + datumBestand + '.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'] }
+  const html = `<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Leeruitkomsten — ${_lastData.functietitel || ''}</title>
+<style>
+${styles}
+body { background: #f7f8fa; }
+.print-bar { background: #1F3864; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+.print-btn { background: #C2185B; color: white; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.pdf-page { max-width: 960px; margin: 0 auto; padding: 32px; }
+.pdf-header { background: #1F3864; color: white; padding: 24px 28px; border-radius: 10px; margin-bottom: 24px; }
+@media print { .print-bar { display: none; } body { background: white; } .pdf-page { padding: 0; max-width: 100%; } }
+</style>
+</head>
+<body>
+<div class="print-bar">
+  <span>Leeruitkomsten — ${_lastData.functietitel || ''} | ${datum}</span>
+  <button class="print-btn" onclick="window.print()">🖨️ Afdrukken / Opslaan als PDF</button>
+</div>
+<div class="pdf-page">
+  <div class="pdf-header">
+    <h1 style="font-size:22px;font-weight:700;margin-bottom:4px;">Taakgerichte Leeruitkomsten</h1>
+    <p style="font-size:13px;opacity:0.8;">${_lastData.functietitel || ''} &nbsp;|&nbsp; ${datum}</p>
+  </div>
+  ${takenHTML}
+</div>
+<script>
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 400);
   };
+<\/script>
+</body></html>`;
 
-  setTimeout(() => {
-    html2pdf().set(opts).from(container).save().then(() => {
-      document.body.removeChild(container);
-      if (btn) { btn.innerHTML = origLabel; btn.disabled = false; }
-    }).catch(() => {
-      document.body.removeChild(container);
-      if (btn) { btn.innerHTML = origLabel; btn.disabled = false; }
-      showError('PDF genereren is mislukt. Probeer het nog eens.');
-    });
-  }, 150);
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 }
 
 function downloadExcel() {
