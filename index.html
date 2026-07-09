@@ -6,6 +6,7 @@
 <title>Leeruitkomsten Generator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root {
     --bg: #F7F8FA;
@@ -178,6 +179,7 @@
     margin-bottom: 20px;
     overflow: hidden;
     border: 1px solid var(--border);
+    page-break-inside: avoid;
   }
 
   .taak-header {
@@ -473,6 +475,47 @@ function handleXlsx(input) {
   reader.readAsArrayBuffer(file);
 }
 
+const NIVEAU_ORDER = { basis: 1, gemiddeld: 2, gevorderd: 3, expert: 4 };
+
+function niveauRank(niveau) {
+  if (!niveau) return 0;
+  const key = String(niveau).toLowerCase();
+  for (const naam in NIVEAU_ORDER) {
+    if (key.includes(naam)) return NIVEAU_ORDER[naam];
+  }
+  return 0;
+}
+
+// Veiligheidsnet: forceer dat elke softskill overal hetzelfde (hoogste) niveau
+// heeft, ook als de AI de instructie een keer niet perfect volgt.
+function normaliseerSoftskillNiveaus(data) {
+  const maxPerSkill = {};
+  (data.taken || []).forEach(taak => {
+    (taak.handelingen || []).forEach(h => {
+      (h.skills || []).forEach(s => {
+        if (String(s.type || '').toLowerCase().includes('soft')) {
+          const key = String(s.naam || '').trim().toLowerCase();
+          if (!key) return;
+          if (!maxPerSkill[key] || niveauRank(s.niveau) > niveauRank(maxPerSkill[key])) {
+            maxPerSkill[key] = s.niveau;
+          }
+        }
+      });
+    });
+  });
+  (data.taken || []).forEach(taak => {
+    (taak.handelingen || []).forEach(h => {
+      (h.skills || []).forEach(s => {
+        if (String(s.type || '').toLowerCase().includes('soft')) {
+          const key = String(s.naam || '').trim().toLowerCase();
+          if (maxPerSkill[key]) s.niveau = maxPerSkill[key];
+        }
+      });
+    });
+  });
+  return data;
+}
+
 function checkReady() {
   const ready = docxText || xlsxData.length > 0;
   document.getElementById('btn-generate').disabled = !ready;
@@ -497,9 +540,30 @@ async function generateLeeruitkomsten() {
 
   setProgress(10, 'Bestanden worden verwerkt...');
 
-  // Bouw skillset samenvatting
+  // Softskills gelden functie-breed: bepaal per softskill het hoogste niveau
+  // dat waar dan ook in de skillset voorkomt, ongeacht bij welke taak.
+  const softSkillMaxNiveau = {};
+  xlsxData.forEach(row => {
+    const type = String(row['Type'] || '').toLowerCase();
+    if (type.includes('soft')) {
+      const key = String(row['Skill'] || '').trim().toLowerCase();
+      if (!key) return;
+      const niveau = row['Niveau'] || '';
+      if (!softSkillMaxNiveau[key] || niveauRank(niveau) > niveauRank(softSkillMaxNiveau[key])) {
+        softSkillMaxNiveau[key] = niveau;
+      }
+    }
+  });
+
+  // Bouw skillset samenvatting (softskills alvast genormaliseerd naar hoogste niveau)
   const skillsSamenvatting = xlsxData.map(row => {
-    return `- ${row['Type'] || ''} | ${row['Skill'] || ''} | Niveau: ${row['Niveau'] || ''} | Taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
+    const type = row['Type'] || '';
+    const naam = row['Skill'] || '';
+    const key = String(naam).trim().toLowerCase();
+    const niveau = (type.toLowerCase().includes('soft') && softSkillMaxNiveau[key])
+      ? softSkillMaxNiveau[key]
+      : (row['Niveau'] || '');
+    return `- ${type} | ${naam} | Niveau: ${niveau} | Taken: ${row['Gekoppelde taken'] || ''} | Definitie: ${row['ESCO Definitie'] || ''}`;
   }).join('\n');
 
   setProgress(25, 'Data voorbereid, AI wordt aangesproken...');
@@ -525,6 +589,8 @@ Structuur per taak:
    - Verantwoordelijkheid: waarvoor is de medewerker aanspreekbaar?
    - Leeruitkomst: "Na de training kan de [functietitel] zelfstandig [concrete handeling] [context/conditie] zodat [gewenst resultaat]"
 4. Gekoppelde ESCO-skill(s) en niveau
+
+BELANGRIJKE REGEL VOOR SOFTSKILLS: een softskill geldt functie-breed, niet taakspecifiek — iemand die "coachen" op expertniveau beheerst, beheerst dat bij elke taak waar coachen aan de orde is. Gebruik daarom voor elke softskill overal hetzelfde niveau: het HOOGSTE niveau dat voor die skill in de skillset voorkomt, ongeacht bij welke taak dat niveau genoemd wordt. Hardskills mogen wél per taak een ander niveau hebben, want die zijn taakspecifiek.
 
 Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown:
 {
@@ -571,6 +637,7 @@ Geef maximaal 5 taken terug. Antwoord ALLEEN in JSON, geen uitleg, geen markdown
     }
 
     setProgress(95, 'Resultaten worden weergegeven...');
+    parsed = normaliseerSoftskillNiveaus(parsed);
     _lastData = parsed;
     renderResults(parsed);
     setProgress(100, 'Klaar!');
@@ -658,8 +725,8 @@ function renderResults(data) {
     <button class="btn btn-secondary" onclick="downloadExcel()" style="background:#1E7145;">
       📊 Download Excel
     </button>
-    <button class="btn btn-secondary" onclick="openPDF()" style="background:#4B2D83;">
-      📄 Download als HTML
+    <button class="btn btn-secondary" onclick="downloadPDF(event)" style="background:#4B2D83;">
+      📄 Download PDF
     </button>
   `;
 
@@ -775,6 +842,80 @@ body { background: #f7f8fa; }
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function downloadPDF(event) {
+  if (!_lastData) return;
+  const btn = event ? event.target.closest('button') : null;
+  const origLabel = btn ? btn.innerHTML : null;
+  if (btn) { btn.innerHTML = '⏳ PDF wordt gemaakt...'; btn.disabled = true; }
+
+  const datum = new Date().toLocaleDateString('nl-NL');
+
+  let takenHTML = '';
+  for (const taak of (_lastData.taken || [])) {
+    const taakNr = 'Taak ' + (parseInt(taak.nr.replace(/[^0-9]/g,'')) || taak.nr);
+    takenHTML += `<div class="taak-card">
+      <div class="taak-header">
+        <span class="taak-nr">${taakNr}</span>
+        <span class="taak-titel">${taak.taak}</span>
+      </div>`;
+
+    for (const h of (taak.handelingen || [])) {
+      const skillTags = (h.skills || []).map(s =>
+        `<span class="skill-tag ${s.type === 'Hard' ? 'hard' : 'soft'}">${s.naam} <span class="niveau-tag ${niveauClass(s.niveau)}">${s.niveau}</span></span>`
+      ).join('');
+
+      takenHTML += `<div class="handeling-block">
+        <div class="handeling-label">Handeling</div>
+        <div class="handeling-naam">${h.handeling}</div>
+        <div class="leeruitkomst-grid">
+          <div class="lo-item kennis"><div class="lo-label">📘 Kennis</div><div class="lo-text">${h.kennis}</div></div>
+          <div class="lo-item vaardigheid"><div class="lo-label">🔧 Vaardigheid</div><div class="lo-text">${h.vaardigheid}</div></div>
+          <div class="lo-item verantwoordelijkheid"><div class="lo-label">✅ Verantwoordelijkheid</div><div class="lo-text">${h.verantwoordelijkheid}</div></div>
+        </div>
+        <div class="leeruitkomst-statement"><div class="lo-label">⭐ Leeruitkomst</div><div class="lo-text">${h.leeruitkomst}</div></div>
+        ${skillTags ? `<div class="skill-tags"><div class="skills-label">Skills</div>${skillTags}</div>` : ''}
+      </div>`;
+    }
+    takenHTML += '</div>';
+  }
+
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '760px';
+  container.style.background = '#ffffff';
+  container.innerHTML = `
+    <div class="pdf-header" style="background:#1F3864;color:#fff;padding:20px 24px;border-radius:10px;margin-bottom:20px;">
+      <h1 style="font-size:20px;font-weight:700;margin-bottom:4px;">Taakgerichte Leeruitkomsten</h1>
+      <p style="font-size:12px;opacity:0.85;">${_lastData.functietitel || ''} &nbsp;|&nbsp; ${datum}</p>
+    </div>
+    ${takenHTML}
+  `;
+  document.body.appendChild(container);
+
+  const naam = (_lastData.functietitel || 'Leeruitkomsten').replace(/\s+/g, '_');
+  const datumBestand = datum.replace(/\//g, '-');
+
+  const opts = {
+    margin: 10,
+    filename: 'Leeruitkomsten_' + naam + '_' + datumBestand + '.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'] }
+  };
+
+  html2pdf().set(opts).from(container).save().then(() => {
+    document.body.removeChild(container);
+    if (btn) { btn.innerHTML = origLabel; btn.disabled = false; }
+  }).catch(() => {
+    document.body.removeChild(container);
+    if (btn) { btn.innerHTML = origLabel; btn.disabled = false; }
+    showError('PDF genereren is mislukt. Probeer het nog eens.');
+  });
 }
 
 function downloadExcel() {
